@@ -169,24 +169,61 @@ class AnalisadorAscendente:
             return 4 
         return 404
     
+    def reportar_erro(self,linha):
+        esperados = []
+        for i in range(5):
+            if self.tabelaAcao[linha][i] != "[][]":
+                if i == 0:
+                    esperados.append("if")
+                if i == 1:
+                    esperados.append("then")
+                if i == 2:
+                    esperados.append("a")
+                if i == 3:
+                    esperados.append("b")
+                if i == 4:
+                    esperados.append("fechamento")
+        texto_esperado = "("
+        for esperado in esperados:
+            if len(texto_esperado) == 1:
+                texto_esperado += esperado
+            elif len(texto_esperado) > 1:
+                texto_esperado += ","+esperado
+        texto_esperado += ")"
+        return texto_esperado
     def fazerAnalise(self):
         self.pilhaEstado.append(0)
         self.get_next_token()
+        table = []
+        erro = 0
         while 1:
             row_table = []
             linha = self.pilhaEstado[-1]
             coluna = self.buscarSimbolo(self.token.valor)
             acao = self.tabelaAcao[linha][coluna]
             numero = self.tabelaNumero[linha][coluna]
-            row_table.append(self.pilhaEstado)
-            row_table.append(self.token.valor+self.entrada[self.posicao:len(self.entrada)])
-            row_table.append(acao+str(numero))
-            nos = []
+            acao_erro = ""
+            if acao == "[][]":
+                esperado = self.reportar_erro(linha)
+                acao = "error"
+                erro = 1
+                acao_erro = "erro sintatico(foi lido: "+self.token.valor+" quando o esperado era" + esperado + ")"
+            estados = ""
+            for estado in self.pilhaEstado:
+                estados = estados+" "+str(estado) 
+            entrada = self.token.valor+self.entrada[self.posicao:len(self.entrada)]
+            row_table.append(estados)
+            row_table.append(entrada)
+            if acao == "error":
+                row_table.append(acao_erro)
+            else:
+                row_table.append(acao+str(numero))
+            table.append(row_table)
+            nos = ""
             for no in self.pilhaNo: 
-                nos.append(no.valor)
+                nos = nos+" "+no.valor 
             row_table.append(nos)
-            print(tabulate(row_table))
-            if acao == "aceite":
+            if acao == "aceite" or acao == "error":
                 break
             if acao == "shift":
                 self.pilhaEstado.append(numero)
@@ -202,10 +239,11 @@ class AnalisadorAscendente:
                     self.reduct3()
                 elif numero == 4:
                     self.reduct4()
-
-            
-            
-        print(self.token.valor)
+        print(tabulate(table))
+        if erro != 1:
+            arvore = Arvore()
+            arvore.definir_raiz(self.pilhaNo[-1])
+            arvore.mostrar_arvore(self.pilhaNo[-1])
 
 
 def criarAutomato(quantidade_estados,alfabeto):
