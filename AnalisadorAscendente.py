@@ -91,16 +91,16 @@ class AnalisadorAscendente:
 
     def formar_token(self,estado_atual,valor_token):
         token = Token("NULL","NULL")
-        if estado_atual == 2:
+        if estado_atual == 3:
             token.tipo = "if"
             token.valor = "if"
-        if estado_atual == 6:
+        if estado_atual == 8:
             token.tipo = "then"
             token.valor = "then"
-        if estado_atual == 7:
+        if estado_atual == 10:
             token.tipo = "a"
             token.valor = "a"
-        if estado_atual == 8:
+        if estado_atual == 12:
             token.tipo = "b"
             token.valor = "b"
         return token
@@ -126,6 +126,19 @@ class AnalisadorAscendente:
                 if validador == 0:
                     return 0
                 atual_position += 1
+            if estado_atual == 2:
+                self.set_token(Token("if","if"))
+                self.posicao = len(self.entrada)
+            if estado_atual == 7:
+                self.set_token(Token("then","then"))
+                self.posicao = len(self.entrada)
+            if estado_atual == 9:
+                self.set_token(Token("a","a"))
+                self.posicao = len(self.entrada)
+            if estado_atual == 11:
+                self.set_token(Token("b","b"))
+                self.posicao = len(self.entrada)
+            
 
     def formarTabelas(self):
         self.tabelaAcao[0][0] = "shift"
@@ -152,9 +165,6 @@ class AnalisadorAscendente:
         self.tabelaTransicao[0][2] = 1
         self.tabelaTransicao[2][0] = 5
         self.tabelaTransicao[7][1] = 8
-        print(tabulate(self.tabelaAcao))
-        print(tabulate(self.tabelaNumero))
-        print(tabulate(self.tabelaTransicao))
 
     def buscarSimbolo(self,texto):
         if texto == "if":
@@ -168,7 +178,35 @@ class AnalisadorAscendente:
         elif texto == "$":
             return 4 
         return 404
-    
+    def fazerTabelaCompleta(self):
+        header = []
+        header.append("if")
+        header.append("then")
+        header.append("a")
+        header.append("b")
+        header.append("$")
+        header.append("E")
+        header.append("C")
+        header.append("S")
+
+        tabela_completa = []
+        tabela_completa.append(header)
+        for i in range(9):
+            linha = []
+            for j in range(5):
+                valor = ""
+                if self.tabelaAcao[i][j] != "[][]":
+                    valor = self.tabelaAcao[i][j] +" "+ str(self.tabelaNumero[i][j])
+                linha.append(valor)
+            for k in range(3):
+                valor = ""
+                if self.tabelaTransicao[i][k] != "[][]":
+                    valor = str(self.tabelaTransicao[i][k])
+                linha.append(valor)
+            tabela_completa.append(linha)
+        print(tabulate(tabela_completa,headers="firstrow",tablefmt="grid",stralign="center"))
+
+            
     def reportar_erro(self,linha):
         esperados = []
         for i in range(5):
@@ -191,10 +229,19 @@ class AnalisadorAscendente:
                 texto_esperado += ","+esperado
         texto_esperado += ")"
         return texto_esperado
+
     def fazerAnalise(self):
         self.pilhaEstado.append(0)
-        self.get_next_token()
+        if self.get_next_token() == 0:
+            print("erro lexico")
+            return 0
+        header = []
+        header.append("estado")
+        header.append("cadeia")
+        header.append("regra")
+        header.append("no")
         table = []
+        table.append(header)
         erro = 0
         while 1:
             row_table = []
@@ -207,17 +254,17 @@ class AnalisadorAscendente:
                 esperado = self.reportar_erro(linha)
                 acao = "error"
                 erro = 1
-                acao_erro = "erro sintatico(foi lido: "+self.token.valor+" quando o esperado era" + esperado + ")"
+                acao_erro = "erro sintatico(foi lido "+self.token.valor+" quando o esperado era" + esperado + ")"
             estados = ""
             for estado in self.pilhaEstado:
                 estados = estados+" "+str(estado) 
-            entrada = self.token.valor+self.entrada[self.posicao:len(self.entrada)]
+            entrada = self.token.valor+" "+self.entrada[self.posicao:len(self.entrada)]
             row_table.append(estados)
             row_table.append(entrada)
             if acao == "error":
                 row_table.append(acao_erro)
             else:
-                row_table.append(acao+str(numero))
+                row_table.append(acao+" "+str(numero))
             table.append(row_table)
             nos = ""
             for no in self.pilhaNo: 
@@ -229,7 +276,9 @@ class AnalisadorAscendente:
                 self.pilhaEstado.append(numero)
                 no = No(self.token.valor)
                 self.pilhaNo.append(no)
-                self.get_next_token()
+                if self.get_next_token() == 0:
+                    print("erro lexico")
+                    return 0
             if acao == "reduct":
                 if numero == 1:
                     self.reduct1()
@@ -239,12 +288,11 @@ class AnalisadorAscendente:
                     self.reduct3()
                 elif numero == 4:
                     self.reduct4()
-        print(tabulate(table))
+        print(tabulate(table,headers="firstrow",tablefmt="grid"))
         if erro != 1:
             arvore = Arvore()
             arvore.definir_raiz(self.pilhaNo[-1])
             arvore.mostrar_arvore(self.pilhaNo[-1])
-
 
 def criarAutomato(quantidade_estados,alfabeto):
     automato = Automato(alfabeto,quantidade_estados)
@@ -254,28 +302,33 @@ def criarAutomato(quantidade_estados,alfabeto):
     # criando a transição do token 'if'
     automato.adicionar_transicao(0,"i",1)
     automato.adicionar_transicao(1,"f",2)
+    automato.adicionar_transicao(2," ",3)
 
     # criando a transição do token 'then'
-    automato.adicionar_transicao(0,"t",3)
-    automato.adicionar_transicao(3,"h",4)
-    automato.adicionar_transicao(4,"e",5)
-    automato.adicionar_transicao(5,"n",6)
+    automato.adicionar_transicao(0,"t",4)
+    automato.adicionar_transicao(4,"h",5)
+    automato.adicionar_transicao(5,"e",6)
+    automato.adicionar_transicao(6,"n",7)
+    automato.adicionar_transicao(7," ",8)
 
     # criando a transição do token a
-    automato.adicionar_transicao(0,"a",7)
+    automato.adicionar_transicao(0,"a",9)
+    automato.adicionar_transicao(9," ",10)
 
     # criando a transição do tokenb b
-    automato.adicionar_transicao(0,"b",8)
+    automato.adicionar_transicao(0,"b",11)
+    automato.adicionar_transicao(11," ",12)
 
     #definindo os estados de aceitação
-    automato.definir_aceitacao(2)
-    automato.definir_aceitacao(6)
-    automato.definir_aceitacao(7)
+    automato.definir_aceitacao(3)
     automato.definir_aceitacao(8)
+    automato.definir_aceitacao(10)
+    automato.definir_aceitacao(12)
 
     return automato
 # a função retorna criar_automato um automato que é passada para o construtor da classe
-analisador1 = AnalisadorAscendente(criarAutomato(9,alfabeto))
+analisador1 = AnalisadorAscendente(criarAutomato(13,alfabeto))
 analisador1.formarTabelas()
 analisador1.set_entrada("if a then b")
 analisador1.fazerAnalise()
+analisador1.fazerTabelaCompleta()
